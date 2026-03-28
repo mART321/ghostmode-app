@@ -172,7 +172,7 @@ class SettingsPage extends HookConsumerWidget {
             namedLocation: context.namedLocation('warpOptions'),
           ),
           SettingsSection(
-            title: 'VK TURN',
+            title: 'Резервный канал',
             icon: Icons.vpn_key_rounded,
             namedLocation: context.namedLocation('turnOptions'),
           ),

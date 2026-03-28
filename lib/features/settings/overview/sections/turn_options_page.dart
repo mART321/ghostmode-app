@@ -65,7 +65,7 @@ class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
     final isDefault = savedLink.isEmpty;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('VK TURN')),
+      appBar: AppBar(title: const Text('Резервный канал')),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
@@ -142,7 +142,7 @@ class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Получи зашифрованную ссылку в VK боте → «🔑 Обход блокировок»',
+                    'Получи код активации в боте → «🔑 Резервный канал»',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.outline,
                     ),
@@ -178,17 +178,15 @@ class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
           // Как это работает
           ExpansionTile(
             leading: const Icon(Icons.info_outline_rounded),
-            title: const Text('Как это работает'),
+            title: const Text('Подробнее'),
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: Text(
-                  'VK TURN использует серверы видеозвонков ВКонтакте как туннель. '
-                  'Их IP входит в белый список операторов РФ, поэтому трафик '
-                  'проходит даже при блокировке стандартных VPN.\n\n'
-                  'Ссылка на звонок хранится в приложении и обновляется в фоне '
-                  'когда сервер доступен. При белых списках используется '
-                  'последняя сохранённая ссылка.',
+                  'Резервный канал автоматически активируется при каждом подключении. '
+                  'Работает даже при интернет-ограничениях.\n\n'
+                  'Если стандартный VPN не подключается — используй этот конфиг. '
+                  'При необходимости обнови код активации через VK бота.',
                   style: theme.textTheme.bodySmall,
                 ),
               ),
