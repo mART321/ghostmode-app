@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
@@ -11,12 +13,30 @@ part 'turn_proxy_service.g.dart';
 const _peerAddr = '193.160.208.54:56000';
 const _listenAddr = '127.0.0.1:9000';
 
-/// Дефолтная ссылка зашита в приложение — работает без доступа к нашим серверам.
+/// Дефолтная ссылка зашифрована и зашита в приложение.
 /// Обновляется в фоне когда сервер доступен.
-const _defaultVkLink = 'https://vk.com/call/join/TUXgOjIk7iVl1PgkTzNJYMIDLQBnZemmgbn-fOBYeOg';
+const _defaultVkLinkEncrypted = 'DARBNuSMQdxSAY0LfiBbhxIQv6tGD1gCOJCLCA5T4zgPR1wQ-4c-lE8-2SZbFDmtNzCCxkI6VAF6o7w-RHrGMz0VeiE=';
 
 /// URL для получения свежей ссылки с сервера (через relay — российский IP).
 const _turnLinkUrl = 'https://ghost-mode.ru:8443/turn-link';
+
+/// XOR-ключ: SHA256("ghostmode-turn-v1") — совпадает с ключом на сервере.
+const _cipherKey = <int>[
+  0x64, 0x70, 0x35, 0x46, 0x97, 0xb6, 0x6e, 0xf3,
+  0x24, 0x6a, 0xa3, 0x68, 0x11, 0x4d, 0x74, 0xe4,
+  0x73, 0x7c, 0xd3, 0x84, 0x2c, 0x60, 0x31, 0x6c,
+  0x17, 0xc4, 0xde, 0x50, 0x69, 0x1c, 0x89, 0x71,
+];
+
+/// Расшифровать VK ссылку полученную с сервера или из VK бота.
+String decryptLink(String encrypted) {
+  final data = base64Url.decode(encrypted);
+  final result = Uint8List(data.length);
+  for (var i = 0; i < data.length; i++) {
+    result[i] = data[i] ^ _cipherKey[i % _cipherKey.length];
+  }
+  return utf8.decode(result);
+}
 
 /// Имя бинарника в assets/bin/ для текущей платформы.
 String? _assetBinaryName() {
@@ -74,8 +94,10 @@ class TurnProxyService extends _$TurnProxyService {
         _turnLinkUrl,
         options: Options(receiveTimeout: const Duration(seconds: 5)),
       );
-      final fresh = resp.data?['vk_link'] as String?;
-      if (fresh != null && fresh.isNotEmpty) {
+      final raw = resp.data?['vk_link'] as String?;
+      if (raw != null && raw.isNotEmpty) {
+        final isEncrypted = resp.data?['encrypted'] == true;
+        final fresh = isEncrypted ? decryptLink(raw) : raw;
         await ref.read(Preferences.vkTurnLink.notifier).update(fresh);
         return fresh;
       }
@@ -87,8 +109,8 @@ class TurnProxyService extends _$TurnProxyService {
     final saved = ref.read(Preferences.vkTurnLink);
     if (saved.isNotEmpty) return saved;
 
-    // Последний резерв — дефолтная из приложения
-    return _defaultVkLink;
+    // Последний резерв — дефолтная зашифрованная из приложения
+    return decryptLink(_defaultVkLinkEncrypted);
   }
 
   /// Запустить прокси. Если ссылка не передана — определяет автоматически.
@@ -135,8 +157,10 @@ class TurnProxyService extends _$TurnProxyService {
         _turnLinkUrl,
         options: Options(receiveTimeout: const Duration(seconds: 5)),
       );
-      final fresh = resp.data?['vk_link'] as String?;
-      if (fresh != null && fresh.isNotEmpty) {
+      final raw = resp.data?['vk_link'] as String?;
+      if (raw != null && raw.isNotEmpty) {
+        final isEncrypted = resp.data?['encrypted'] == true;
+        final fresh = isEncrypted ? decryptLink(raw) : raw;
         await ref.read(Preferences.vkTurnLink.notifier).update(fresh);
         if (state) await restart(fresh);
       }
