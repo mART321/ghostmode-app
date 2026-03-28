@@ -460,6 +460,7 @@ jobs:
           sed 's|RELEASE_TAG|${{ env.TAG_NAME }}|g' ./.github/release_message.md >> release.md
 
       - name: Upload Release
+        continue-on-error: true
         uses: softprops/action-gh-release@v2
         if: ${{ success() }}
         env:
