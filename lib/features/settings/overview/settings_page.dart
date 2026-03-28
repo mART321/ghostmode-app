@@ -172,7 +172,7 @@ class SettingsPage extends HookConsumerWidget {
             namedLocation: context.namedLocation('warpOptions'),
           ),
           SettingsSection(
-            title: 'Резервный канал',
+            title: 'Обход белых списков',
             icon: Icons.vpn_key_rounded,
             namedLocation: context.namedLocation('turnOptions'),
           ),

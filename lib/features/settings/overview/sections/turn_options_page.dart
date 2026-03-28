@@ -65,7 +65,7 @@ class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
     final isDefault = savedLink.isEmpty;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Резервный канал')),
+      appBar: AppBar(title: const Text('Обход белых списков')),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
@@ -142,7 +142,7 @@ class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Получи код активации в боте → «🔑 Резервный канал»',
+                    'Получи код активации в боте → «🔑 Обход белых списков»',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.outline,
                     ),
@@ -183,7 +183,7 @@ class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: Text(
-                  'Резервный канал автоматически активируется при каждом подключении. '
+                  'Обход белых списков автоматически активируется при каждом подключении. '
                   'Работает даже при интернет-ограничениях.\n\n'
                   'Если стандартный VPN не подключается — используй этот конфиг. '
                   'При необходимости обнови код активации через VK бота.',
