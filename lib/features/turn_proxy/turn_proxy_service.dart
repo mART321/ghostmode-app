@@ -1,6 +1,8 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
+import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -9,12 +11,16 @@ part 'turn_proxy_service.g.dart';
 const _peerAddr = '193.160.208.54:56000';
 const _listenAddr = '127.0.0.1:9000';
 
+/// Дефолтная ссылка зашита в приложение — работает без доступа к нашим серверам.
+/// Обновляется в фоне когда сервер доступен.
+const _defaultVkLink = 'https://vk.com/call/join/TUXgOjIk7iVl1PgkTzNJYMIDLQBnZemmgbn-fOBYeOg';
+
+/// URL для получения свежей ссылки с сервера (через relay — российский IP).
+const _turnLinkUrl = 'https://ghost-mode.ru:8443/turn-link';
+
 /// Имя бинарника в assets/bin/ для текущей платформы.
 String? _assetBinaryName() {
   if (Platform.isAndroid) {
-    // arm64 — подавляющее большинство устройств с 2016 года
-    // armv7 — старые 32-битные устройства
-    // Проверяем через размер указателя: arm64 = 8 байт
     final is64 = Platform.version.contains('arm64') ||
         RegExp('aarch64|arm64').hasMatch(Platform.operatingSystemVersion);
     return is64
@@ -37,7 +43,7 @@ class TurnProxyService extends _$TurnProxyService {
   Process? _process;
 
   @override
-  bool build() => false; // false = не запущен
+  bool build() => false;
 
   /// Извлекает бинарник из assets в кеш-директорию и делает его исполняемым.
   Future<String> _extractBinary() async {
@@ -47,7 +53,6 @@ class TurnProxyService extends _$TurnProxyService {
     final dir = await getApplicationSupportDirectory();
     final file = File('${dir.path}/$name');
 
-    // Перезаписываем при каждом обновлении приложения
     final data = await rootBundle.load('assets/bin/$name');
     await file.writeAsBytes(data.buffer.asUint8List(), flush: true);
 
@@ -58,23 +63,49 @@ class TurnProxyService extends _$TurnProxyService {
     return file.path;
   }
 
-  /// Запустить прокси с указанной VK ссылкой.
-  Future<void> start(String vkLink) async {
+  /// Получить актуальную VK ссылку:
+  /// 1. Пробуем скачать свежую с сервера (если доступен)
+  /// 2. Иначе берём сохранённую из настроек
+  /// 3. Иначе используем дефолтную зашитую в приложение
+  Future<String> _resolveLink() async {
+    // Пробуем обновить с сервера
+    try {
+      final resp = await Dio().get<Map<String, dynamic>>(
+        _turnLinkUrl,
+        options: Options(receiveTimeout: const Duration(seconds: 5)),
+      );
+      final fresh = resp.data?['vk_link'] as String?;
+      if (fresh != null && fresh.isNotEmpty) {
+        await ref.read(Preferences.vkTurnLink.notifier).update(fresh);
+        return fresh;
+      }
+    } catch (_) {
+      // Сервер недоступен (белые списки активны) — используем кеш
+    }
+
+    // Сохранённая ссылка из настроек
+    final saved = ref.read(Preferences.vkTurnLink);
+    if (saved.isNotEmpty) return saved;
+
+    // Последний резерв — дефолтная из приложения
+    return _defaultVkLink;
+  }
+
+  /// Запустить прокси. Если ссылка не передана — определяет автоматически.
+  Future<void> start([String? vkLink]) async {
     if (_process != null) return;
 
+    final link = vkLink ?? await _resolveLink();
     final binaryPath = await _extractBinary();
 
     _process = await Process.start(binaryPath, [
-      '-vk-link', vkLink,
+      '-vk-link', link,
       '-peer', _peerAddr,
       '-listen', _listenAddr,
     ]);
 
-    _process!.stderr.listen((data) {
-      // ignore stderr — vk-turn-client пишет туда обычные логи
-    });
+    _process!.stderr.listen((_) {});
 
-    // Если процесс неожиданно упал — сбрасываем состояние
     _process!.exitCode.then((_) {
       _process = null;
       if (state) state = false;
@@ -91,8 +122,26 @@ class TurnProxyService extends _$TurnProxyService {
   }
 
   /// Перезапустить (при смене ссылки).
-  Future<void> restart(String vkLink) async {
+  Future<void> restart([String? vkLink]) async {
     await stop();
     await start(vkLink);
+  }
+
+  /// Фоновое обновление ссылки (вызывать при старте приложения).
+  /// Молча пробует скачать свежую ссылку с сервера и сохранить.
+  Future<void> refreshLinkInBackground() async {
+    try {
+      final resp = await Dio().get<Map<String, dynamic>>(
+        _turnLinkUrl,
+        options: Options(receiveTimeout: const Duration(seconds: 5)),
+      );
+      final fresh = resp.data?['vk_link'] as String?;
+      if (fresh != null && fresh.isNotEmpty) {
+        await ref.read(Preferences.vkTurnLink.notifier).update(fresh);
+        if (state) await restart(fresh);
+      }
+    } catch (_) {
+      // Сервер недоступен — ничего не делаем, работаем с кешем
+    }
   }
 }

@@ -11,19 +11,16 @@ class TurnOptionsPage extends ConsumerStatefulWidget {
 }
 
 class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
-  late final TextEditingController _linkController;
+  bool _refreshing = false;
 
-  @override
-  void initState() {
-    super.initState();
-    final saved = ref.read(Preferences.vkTurnLink);
-    _linkController = TextEditingController(text: saved);
-  }
-
-  @override
-  void dispose() {
-    _linkController.dispose();
-    super.dispose();
+  Future<void> _refresh() async {
+    setState(() => _refreshing = true);
+    await ref.read(turnProxyServiceProvider.notifier).refreshLinkInBackground();
+    if (mounted) setState(() => _refreshing = false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Ссылка обновлена')),
+    );
   }
 
   @override
@@ -32,12 +29,17 @@ class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
     final savedLink = ref.watch(Preferences.vkTurnLink);
     final theme = Theme.of(context);
 
+    // Показываем дефолтную ссылку если своя ещё не скачана
+    const defaultLink = 'https://vk.com/call/join/TUXgOjIk7iVl1PgkTzNJYMIDLQBnZemmgbn-fOBYeOg';
+    final activeLink = savedLink.isNotEmpty ? savedLink : defaultLink;
+    final isDefault = savedLink.isEmpty;
+
     return Scaffold(
       appBar: AppBar(title: const Text('VK TURN')),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          // Статус
+          // Статус прокси
           Card(
             child: ListTile(
               leading: Icon(
@@ -48,54 +50,55 @@ class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
               subtitle: Text(isRunning ? 'Прокси запущен (127.0.0.1:9000)' : 'Не запущен'),
               trailing: Switch.adaptive(
                 value: isRunning,
-                onChanged: savedLink.isEmpty
-                    ? null
-                    : (value) async {
-                        final svc = ref.read(turnProxyServiceProvider.notifier);
-                        if (value) {
-                          await svc.start(savedLink);
-                        } else {
-                          await svc.stop();
-                        }
-                      },
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // VK ссылка
-          Text(
-            'VK Join Link',
-            style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: _linkController,
-            decoration: InputDecoration(
-              hintText: 'https://vk.com/call/join/...',
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.save_rounded),
-                onPressed: () async {
-                  final link = _linkController.text.trim();
-                  await ref.read(Preferences.vkTurnLink.notifier).update(link);
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Ссылка сохранена')),
-                  );
-                  // Если прокси уже запущен — перезапускаем с новой ссылкой
-                  if (isRunning) {
-                    await ref.read(turnProxyServiceProvider.notifier).restart(link);
+                onChanged: (value) async {
+                  final svc = ref.read(turnProxyServiceProvider.notifier);
+                  if (value) {
+                    await svc.start();
+                  } else {
+                    await svc.stop();
                   }
                 },
               ),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // Статус ссылки
+          Card(
+            child: ListTile(
+              leading: Icon(
+                isDefault ? Icons.link_rounded : Icons.verified_rounded,
+                color: isDefault ? theme.colorScheme.outline : Colors.green,
+              ),
+              title: Text(isDefault ? 'Встроенная ссылка' : 'Актуальная ссылка'),
+              subtitle: Text(
+                activeLink.length > 50
+                    ? '${activeLink.substring(0, 50)}...'
+                    : activeLink,
+                style: theme.textTheme.bodySmall,
+              ),
+              trailing: _refreshing
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.refresh_rounded),
+                      tooltip: 'Обновить с сервера',
+                      onPressed: _refresh,
+                    ),
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
-            'Получи ссылку в VK боте: нажми «Обход белых списков» и следуй инструкции.',
+            isDefault
+                ? 'Используется встроенная ссылка. Нажми ↻ для обновления (нужен интернет).'
+                : 'Ссылка актуальна. Обновляется автоматически при наличии интернета.',
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
           ),
           const SizedBox(height: 24),
+
           // Как это работает
           ExpansionTile(
             leading: const Icon(Icons.info_outline_rounded),
@@ -107,8 +110,9 @@ class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
                   'VK TURN использует серверы видеозвонков ВКонтакте как туннель. '
                   'Их IP входит в белый список операторов РФ, поэтому трафик '
                   'проходит даже при блокировке стандартных VPN.\n\n'
-                  'При включении запускается фоновый процесс, который слушает '
-                  '127.0.0.1:9000 и форвардит трафик через VK TURN серверы.',
+                  'Ссылка на звонок хранится в приложении и обновляется в фоне '
+                  'когда сервер доступен. При белых списках используется '
+                  'последняя сохранённая ссылка.',
                   style: theme.textTheme.bodySmall,
                 ),
               ),
