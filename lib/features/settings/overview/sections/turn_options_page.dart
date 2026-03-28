@@ -12,6 +12,13 @@ class TurnOptionsPage extends ConsumerStatefulWidget {
 
 class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
   bool _refreshing = false;
+  final _linkController = TextEditingController();
+
+  @override
+  void dispose() {
+    _linkController.dispose();
+    super.dispose();
+  }
 
   Future<void> _refresh() async {
     setState(() => _refreshing = true);
@@ -21,6 +28,29 @@ class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Ссылка обновлена')),
     );
+  }
+
+  Future<void> _applyManualLink() async {
+    final input = _linkController.text.trim();
+    if (input.isEmpty) return;
+
+    // Определяем: зашифрованная строка или plaintext ссылка
+    final isEncrypted = !input.startsWith('http');
+    final link = isEncrypted ? decryptLink(input) : input;
+
+    await ref.read(Preferences.vkTurnLink.notifier).update(link);
+    _linkController.clear();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Ссылка применена')),
+    );
+
+    // Перезапускаем прокси с новой ссылкой если он был запущен
+    final svc = ref.read(turnProxyServiceProvider.notifier);
+    if (ref.read(turnProxyServiceProvider)) {
+      await svc.restart(link);
+    }
   }
 
   @override
@@ -96,6 +126,52 @@ class _TurnOptionsPageState extends ConsumerState<TurnOptionsPage> {
                 ? 'Используется встроенная ссылка. Нажми ↻ для обновления (нужен интернет).'
                 : 'Ссылка актуальна. Обновляется автоматически при наличии интернета.',
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+          ),
+          const SizedBox(height: 24),
+
+          // Ручной ввод ссылки (резерв при белых списках)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Вставить ссылку вручную',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Получи зашифрованную ссылку в VK боте → «🔑 Обход блокировок»',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _linkController,
+                          decoration: const InputDecoration(
+                            hintText: 'Вставь ссылку или зашифрованную строку',
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                          style: theme.textTheme.bodySmall,
+                          maxLines: 1,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: _applyManualLink,
+                        child: const Text('Применить'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 24),
 
