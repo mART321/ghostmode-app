@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:hiddify/core/haptic/haptic_service.dart';
@@ -10,6 +11,7 @@ import 'package:hiddify/features/connection/model/connection_failure.dart';
 import 'package:hiddify/features/connection/model/connection_status.dart';
 import 'package:hiddify/features/profile/model/profile_entity.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
+import 'package:hiddify/features/turn_proxy/turn_proxy_service.dart';
 import 'package:hiddify/hiddifycore/init_signal.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -141,6 +143,8 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       loggy.info("no active profile, not connecting");
       return;
     }
+    // Запускаем VK TURN прокси перед подключением — нужен для WireGuard конфига
+    unawaited(ref.read(turnProxyServiceProvider.notifier).start());
     await _connectionRepo.connect(activeProfile, ref.read(Preferences.disableMemoryLimit)).mapLeft((
       ConnectionFailure err,
     ) async {
@@ -159,6 +163,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   }
 
   Future<void> _disconnect() async {
+    unawaited(ref.read(turnProxyServiceProvider.notifier).stop());
     await _connectionRepo.disconnect().mapLeft((err) {
       loggy.warning("error disconnecting", err);
       ref
