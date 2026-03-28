@@ -20,6 +20,7 @@ import 'package:hiddify/features/settings/overview/sections/general_page.dart';
 import 'package:hiddify/features/settings/overview/sections/inbound_options_page.dart';
 import 'package:hiddify/features/settings/overview/sections/route_options_page.dart';
 import 'package:hiddify/features/settings/overview/sections/tls_tricks_page.dart';
+import 'package:hiddify/features/settings/overview/sections/turn_options_page.dart';
 import 'package:hiddify/features/settings/overview/sections/warp_options_page.dart';
 import 'package:hiddify/features/settings/overview/settings_page.dart';
 import 'package:hiddify/utils/utils.dart';
@@ -205,6 +206,12 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
                       path: '/warp-options',
                       pageBuilder: (_, state) =>
                           customTransition(TransitionType.slide, state.pageKey, const WarpOptionsPage()),
+                    ),
+                    GoRoute(
+                      name: 'turnOptions',
+                      path: '/turn-options',
+                      pageBuilder: (_, state) =>
+                          customTransition(TransitionType.slide, state.pageKey, const TurnOptionsPage()),
                     ),
                     if (isMobileBreakpoint) ...[
                       GoRoute(

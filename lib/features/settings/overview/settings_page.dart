@@ -171,6 +171,11 @@ class SettingsPage extends HookConsumerWidget {
             icon: Icons.cloud_rounded,
             namedLocation: context.namedLocation('warpOptions'),
           ),
+          SettingsSection(
+            title: 'VK TURN',
+            icon: Icons.vpn_key_rounded,
+            namedLocation: context.namedLocation('turnOptions'),
+          ),
           if (PlatformUtils.isIOS)
             Material(
               child: ListTile(

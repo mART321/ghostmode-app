@@ -110,6 +110,11 @@ abstract class Preferences {
     mapFrom: ActionsAtClosing.values.byName,
     mapTo: (value) => value.name,
   );
+
+  static final vkTurnLink = PreferencesNotifier.create<String, String>(
+    "vk_turn_link",
+    "",
+  );
 }
 
 @Riverpod(keepAlive: true)
