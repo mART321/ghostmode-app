@@ -290,6 +290,7 @@ jobs:
           
       - name: Upload Debug Symbols
         if: ${{ inputs.upload-artifact && inputs.tag-name != 'draft' }}
+        continue-on-error: true
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
@@ -297,7 +298,7 @@ jobs:
           SENTRY_DIST: ${{ matrix.platform == 'android-aab' && 'google-play' || 'general' }}
         run: |
           dart pub global activate sentry_dart_plugin
-          dart run sentry_dart_plugin 
+          dart run sentry_dart_plugin
       
       
 
